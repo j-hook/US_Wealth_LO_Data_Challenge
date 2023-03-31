@@ -1,0 +1,801 @@
+---
+title: "Exploring US Wealth"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    toc_float: true
+    theme: 
+      bootswatch: darkly
+---
+```{css, echo=FALSE}
+h1, h2, h3 {
+  text-align: center;
+}
+```
+```{css, echo=FALSE}
+.tab-content{
+    margin-bottom: 50px;
+}
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(reticulate)
+library(bslib)
+```
+```{python}
+import pandas as pd
+import numpy as np 
+
+# Visualization Libraries
+import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import seaborn as sns
+plt.rcParams['figure.dpi']= 300
+```
+
+```{python}
+data = pd.ExcelFile("filepath")
+
+df_wealth = pd.read_excel(data,'Wealth percentile')
+df_income = pd.read_excel(data,'Income percentile')
+df_edu = pd.read_excel(data,'Wealth by education')
+df_gen = pd.read_excel(data,'Wealth by generation')
+```
+
+```{python}
+dfs = [df_wealth,df_income,df_edu,df_gen]
+
+# fix column headers, remove \n
+for x in dfs:
+    x.columns = x.columns.str.replace(r'\n', ' ',regex=True)
+
+# replace the ':' in the Date column with '-' so that it can be transformed into a date 
+for x in dfs:
+    x["Date"] = x["Date"].str.replace(r':', '-',regex=True)
+
+#change the Date column to a datetime object
+for x in dfs:
+    x["Date"] = pd.PeriodIndex(x["Date"], freq ='Q').to_timestamp()
+    
+# set the date column to be the index
+for x in dfs:
+    x.set_index("Date", inplace = True)
+```
+```{python}
+# Adding sum of wealth column
+df_wealth['Total wealth (US$ Trillions)']=df_wealth.iloc[:,5:10].sum(axis=1)
+df_income['Total wealth (US$ Trillions)']=df_income.iloc[:,6:].sum(axis=1)
+df_edu['Total wealth (US$ Trillions)']=df_edu.iloc[:,4:].sum(axis=1)
+df_gen['Total wealth (US$ Trillions)']=df_gen.iloc[:,4:].sum(axis=1)
+```
+```{python}
+# Create column labels for legends
+labels_wealth = ['Top 0.1%','99-99.9%','90-99%','50-90%','Bottom 50%']
+labels_income = ['99-100%', '80-99%', '60-80%', '40-60%', '20-40%','0-20%']
+labels_edu = ['College','Some College','High School','No High School']
+labels_gen = ["Silent and Earlier","Baby Boomer", "Gen X", "Millenial"]
+
+```
+
+## Introduction
+
+
+### Background
+* **Wealth** and **Income** are two distinct measures of an individual's financial situation. 
+    * **Wealth** = total value of an individual's assets (including cash, investments, real estate, and other possessions, minus liabilities such as debt)
+    * **Income** = amount of money an individual earns (e.g. from employment, investments, or other sources)
+* In general, **wealth** and **income** percentiles are not directly comparable because a high **income** does not necessarily translate to a high level of **wealth**. 
+* Analyzing data on disparities of household **Wealth** has important implications for businesses and society, including:
+    * Informing business strategies 
+    * Understandiing the financial situation of potential customers
+    * Helping policymakers and advocates address **Wealth** inequality 
+    * Promoting economic opportunities for all. 
+
+### This Project
+Below are a series of visualizations exploring the distribution of US wealth across wealth percentile groups, income percentile groups, education levels, and generation. These visuals were created with quarterly data from the third quarter of 1989 to the third quarter of 2022 gathered by the US Census Bureau.
+
+<br>
+
+<br>
+
+
+## Amount of Wealth {.tabset .tabset-fade .tabset-pills}
+
+### By Wealth Percentiles {.tabset}
+```{python, results="hide", echo=FALSE}
+# colors for lines and labels, this include a color for total
+wealth_colors=["#d1495b","#E68310","#80BA5A","#11A579","#730071","#003d5b"] 
+fig, ax = plt.subplots(figsize = (10,6))
+
+for column, color in zip(df_wealth[df_wealth.columns[5:]], wealth_colors):
+    ax.plot(df_wealth[column], linewidth = 4, color=color)
+
+ax.set_ylabel('Wealth (US$ Trillions)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize = 16)
+
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_wealth):
+    text = col
+    color = wealth_colors[idx]
+    y_end = df_wealth[df_wealth.columns[idx+5]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.text(
+        x_end, 
+        df_wealth[df_wealth.columns[-1]][-1], 
+        "Total Wealth", 
+        color = wealth_colors[-1], 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+ax.set_title("Distribution of Wealth by Wealth Percentiles", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_wealth.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents US wealth in trillions of dollars from Quarter 3 in 1989 to Quarter 3 in 2022. Each color represents a specific wealth percentiles group in addition to total wealth. As we can see, the distribution of wealth is unequal, with the bottom 50th percentile consistently accounting for the smallest amount of wealth is the US. 
+
+</details>
+
+### By Income Percentiles {.tabset}
+```{python, results="hide", echo=FALSE}
+# colors for lines and labels, this include a color for total
+income_colors=["#d1495b","#E68310","#80BA5A","#11A579","#3FA7D6","#730071","#003d5b"] 
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_income[df_income.columns[6:]], income_colors):
+    ax.plot(df_income[column], linewidth = 4, color=color)
+
+ax.set_ylabel('Wealth (US$ Trillions)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize = 16)
+
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_income):
+    text = col
+    color = income_colors[idx]
+    y_end = df_income[df_income.columns[idx+6]][-1]
+    # avoiding some label crowding
+    if idx == 3: y_end = y_end+2
+    if idx == 5: y_end = y_end-4.75
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 15, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.text(
+        x_end, 
+        df_income[df_income.columns[-1]][-1], 
+        "Total Wealth", 
+        color = income_colors[-1], 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+ax.set_title("Distribution of Wealth by Income Percentiles", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_income.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents US wealth in trillions of dollars from Quarter 3 in 1989 to Quarter 3 in 2022 by Income percentile groups, in addition to the total of US Wealth. As seen on the plot, the distribution of wealth is unequal, with the groups in bottom 60th percentiles consistently showing the smallest amount of growth in wealth. An additional interesting note, we can see that the top 1% (99-100%) and the top 20% (80-99%) income percentiles groups share very similar trends over time, with the latter consistently maintaining nearly twice as much wealth. 
+ 
+</details>
+
+### By Education {.tabset}
+```{python, results="hide", echo=FALSE}
+# colors for lines and labels, this include a color for total
+edu_colors=["#d1495b","#E68310","#80BA5A","#11A579","#003d5b"] 
+fig, ax = plt.subplots(figsize = (10,6))
+
+for column, color in zip(df_edu[df_edu.columns[4:]], edu_colors):
+    ax.plot(df_edu[column], linewidth = 4, color=color)
+
+ax.set_ylabel('Wealth (US$ Trillions)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize = 16)
+
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_edu):
+    text = col
+    color = edu_colors[idx]
+    y_end = df_edu[df_edu.columns[idx+4]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.text(
+        x_end, 
+        df_edu[df_edu.columns[-1]][-1], 
+        "Total Wealth", 
+        color = edu_colors[-1], 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+ax.set_title("Distribution of Wealth by Education", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_edu.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents US wealth in trillions of dollars from Quarter 3 in 1989 to Quarter 3 in 2022 by Education group, in addition to the total of US Wealth. Something we found very interesting is that the wealth distribution for the College education group looks very similar to the Total Wealth Distribution, accounting for approximately 50% of the total wealth.
+
+</details>
+
+### By Generation {.tabset}
+```{python, results="hide", echo=FALSE}
+# colors for lines and labels, this include a color for total
+gen_colors=["#d1495b","#E68310","#80BA5A","#11A579","#003d5b"] 
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_gen[df_gen.columns[4:]], gen_colors):
+    ax.plot(df_gen[column], linewidth = 4, color=color)
+
+ax.set_ylabel('Wealth (US$ Trillions)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize = 16)
+
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_gen):
+    text = col
+    color = gen_colors[idx]
+    y_end = df_gen[df_gen.columns[idx+4]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.text(
+        x_end, 
+        df_gen[df_gen.columns[-1]][-1], 
+        "Total Wealth", 
+        color = gen_colors[-1], 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+ax.set_title("Distribution of Wealth by Generation", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_gen.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents US wealth in trillions of dollars from 1989 to 2022. Each color represents a generation in addition to total wealth of the US. As we can see, the rate of change in wealth over time is not equitable across generations, with the Silent and Earlier and Millennial generations showing relatively stable amounts of wealth over time. This is likely related to age, as the Silent and Earlier generation has aged into retirement during this period while the Millennial have only recently reached young to middle adulthood. The Baby Boomer and Gen X show very similar patterns of growth over time.
+ 
+</details>
+
+
+
+## Proportion of Wealth {.tabset .tabset-fade .tabset-pills}
+
+### By Wealth Percentiles {.tabset}
+
+```{python, results="hide", echo=FALSE}
+wealth_colors=["#d1495b","#E68310","#80BA5A","#11A579","#730071","#003d5b"] # colors for lines and labels
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_wealth[df_wealth.columns[0:5]], wealth_colors):
+    ax.plot(df_wealth[column], linewidth=4, color=color)
+
+ax.set_ylabel('Proportion of Wealth (%)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize = 16)
+ax.set_ylim(-4,100)
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_wealth):
+    text = col
+    color = wealth_colors[idx]
+    y_end = df_wealth[df_wealth.columns[idx]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Proportion of Wealth held by Wealth Percentiles", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_wealth.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents the proportion of US wealth held by ranges of wealth percentiles (groups indicated by color). Based on this plot, we can see nearly half of US wealth is held by the top 10% and only 5% is held by those in the bottom 50th percentile.
+ 
+</details>
+
+### By Income Percentiles {.tabset}
+
+```{python, results="hide", echo=FALSE}
+income_colors=["#d1495b","#E68310","#80BA5A","#11A579","#3FA7D6","#730071","#003d5b"] 
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_income[df_income.columns[0:6]], income_colors):
+    ax.plot(df_income[column], linewidth=4, color=color)
+
+ax.set_ylabel('Proportion of Wealth (%)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize=16)
+ax.set_ylim(-4,100)
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_income):
+    text = col
+    color = income_colors[idx]
+    y_end = df_income[df_income.columns[idx]][-1]
+    # avoiding some label crowding
+    if idx == 4: y_end = y_end-1
+    if idx == 5: y_end = y_end-4
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 15, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Proportion of Wealth held by Income Percentiles", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_income.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents the percentage of US Wealth held by Income Percentiles from Quarter 3 in 1989 to Quarter 3 in 2022. Based on this plot, there is a large gap between the proportion of wealth held by those in the 80-99% Income Percentiles versus those in the 0-40% Income Percentile. The disparity maintained an approximate 37% difference between these two Income percentile groups since Quarter 3 in 1989. Another interesting trend we noted for the Top 1% (99-100%) Income percentile group, was a clear increase from the start of 2020 to the 2022. 
+ 
+</details>
+
+### By Education {.tabset}
+```{python, results="hide", echo=FALSE}
+edu_colors=["#d1495b","#E68310","#80BA5A","#11A579","#730071","#003d5b"] # colors for lines and labels
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_edu[df_edu.columns[0:4]], edu_colors):
+    ax.plot(df_edu[column], linewidth=4, color=color)
+
+ax.set_ylabel('Proportion of Wealth (%)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize=16)
+ax.set_ylim(-4,100)
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_edu):
+    text = col
+    color = edu_colors[idx]
+    y_end = df_edu[df_edu.columns[idx]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Proportion of Wealth held by Education", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_edu.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents the percentage of US Wealth held by Education Group over Quarter 1 of 1990 to Quarter 3 of 2022. Based on this plot, we can see that there is a large disparity between the College Educated group versus the rest of the education groups. As time passed, the gap between individuals with a College education widened from approximately 38% compared to individuals with No High School education to over 68% by Quarter 3 of 2022.
+   
+</details>
+
+### By Generation {.tabset}
+```{python, results="hide", echo=FALSE}
+gen_colors=["#d1495b","#E68310","#80BA5A","#11A579","#730071","#003d5b"] # colors for lines and labels
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_gen[df_gen.columns[0:4]], gen_colors):
+    ax.plot(df_gen[column], linewidth=4, color=color)
+
+ax.set_ylabel('Proportion of Wealth (%)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize=16)
+ax.set_ylim(-4,100)
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(labels_gen):
+    text = col
+    color = gen_colors[idx]
+    y_end = df_gen[df_gen.columns[idx]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Proportion of Wealth held by Generation", fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_gen.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+<details>
+  <summary><div class="alert alert-block alert-info">
+<b>About this Figure</b> (click me)</div></summary>
+This plot represents US wealth in trillions of dollars from 1989 to 2022. Each color represents a generation in addition to total wealth of the US. As we can see, the rate of change in wealth over time is not equitable across generations, with the Silent and Earlier and Millennial Generations showing relatively stable amounts of wealth over time. This is likely related to age, as the Silent and Earlier generation has aged into retirement during this period while the Millennial have only recently reached young to middle adulthood. The Baby Boomer and Gen X show very similar patterns of growth over time. 
+ 
+</details>
+
+
+## Who holds the most wealth? {.tabset .tabset-fade .tabset-pills}
+
+### By Amount {.tabset}
+```{python, results="hide", echo=FALSE}
+# copy wealthiest columns 
+df_wealthiest = df_wealth.copy()
+df_wealthiest = df_wealthiest.drop(df_wealthiest.columns[[0,1,2,3,4,5,6,8,9,10]], axis=1)
+df_wealthiest["Wealth: 90-99%"] = df_wealthiest["90-99% (US$ Trillions)"].values
+df_wealthiest = df_wealthiest.drop(df_wealthiest.columns[[0]], axis=1)
+df_wealthiest["Income: 80-99%"] = df_income["80-99% (US$ Trillions)"].values
+df_wealthiest["College"] = df_edu["College (US$ Trillions)"].values
+df_wealthiest["Baby Boomer"] = df_gen["Baby Boomer (US$ Trillions)"].values
+```
+
+
+```{python, results="hide", echo=FALSE}
+wealthiest_colors=["#d1495b","#E68310","#11A579","#730071","#003d5b"] # colors for lines and labels
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_wealthiest.columns, wealthiest_colors):
+    ax.plot(df_wealthiest[column], linewidth=4, color=color)
+
+ax.set_ylabel('Wealth (US$ Trillions)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize=16)
+
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(df_wealthiest.columns):
+    text = col
+    color = wealthiest_colors[idx]
+    y_end = df_wealthiest[df_wealthiest.columns[idx]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Wealthiest by Amount of Wealth", 
+             fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_wealthiest.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+The figures above plot the wealthiest groups, on average, from each of the data sets we've examined above. While many factors contribute to these values and the groups are not mutually exclusive, these figures give a sense of the most important characteristics related to wealth in the US.
+
+### By Proportion {.tabset} 
+```{python, results="hide", echo=FALSE}
+# copy wealthiest columns 
+df_wealthiest = df_wealth.copy()
+df_wealthiest = df_wealthiest.drop(df_wealthiest.columns[[0,1,3,4,5,6,7,8,9,10]], axis=1)
+df_wealthiest["Wealth: 90-99%"] = df_wealthiest["90-99% (%)"].values
+df_wealthiest = df_wealthiest.drop(df_wealthiest.columns[[0]], axis=1)
+df_wealthiest["Income: 80-99%"] = df_income["80-99% (%)"].values
+df_wealthiest["College"] = df_edu["College (%)"].values
+df_wealthiest["Baby Boomer"] = df_gen["Baby Boomer (%)"].values
+```
+```{python, results="hide", echo=FALSE}
+wealthiest_colors=["#d1495b","#E68310","#11A579","#730071","#003d5b"] # colors for lines and labels
+fig, ax = plt.subplots(figsize = (10, 6))
+
+for column, color in zip(df_wealthiest.columns, wealthiest_colors):
+    ax.plot(df_wealthiest[column], linewidth=4, color=color)
+
+ax.set_ylabel('Proportion of Wealth (%)', 
+              weight = "bold", fontsize=16)
+ax.tick_params(axis = "y", 
+               width = 2, 
+               labelsize = 14)
+ax.tick_params(axis = "x", 
+               width = 2, 
+               labelsize = 14)
+ax.set_xlabel('Year', 
+              weight = "bold", fontsize=16)
+ax.set_ylim(-4,100)
+
+# this is the x-values where the labels will start
+x_end = pd.to_datetime("2023-01-01")
+ax.set_xlim(pd.to_datetime("1989-04-01"), pd.to_datetime("2023-01-01")) # set the x-axis limits
+# add a color-matching label for each generation 
+for idx, col in enumerate(df_wealthiest.columns):
+    text = col
+    color = wealthiest_colors[idx]
+    y_end = df_wealthiest[df_wealthiest.columns[idx]][-1]
+    ax.text(
+        x_end, 
+        y_end, 
+        text, 
+        color = color, 
+        fontsize = 16, 
+        weight = "bold", 
+        va = "center"
+    )
+
+ax.set_title("Wealthiest by Proportion of Wealth", 
+             fontsize = "18", weight = "bold")
+formatter = mdates.DateFormatter("%Y") ### formatter of the date
+locator = mdates.YearLocator() 
+ax.xaxis.set_major_formatter(formatter) ## calling the formatter for the x-axis
+ax.xaxis.set_major_locator(locator)
+# change number of ticks, size, and rotation for the axes
+plt.xticks(df_wealthiest.index[::12]) 
+ax.tick_params(labelrotation = 0)
+ax.spines[['top',"right"]].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+The figures above plot the wealthiest groups, on average, from each of the data sets we've examined above. While many factors contribute to these values and the groups are not mutually exclusive, these figures give a sense of the most important characteristics related to wealth in the US.
+
+## Final Remarks
+In each of the visuals above we explored key characteristics contributing to wealth in the US over the last 33 years. All together, it's clear the college-educated and those in the Baby Boomer generation consistently held a significant proportion of the wealth in this country. We also observed large disparities in wealth when it comes to examining both income and wealth percentiles, with those in the 50th percentile and below holding less 15% of nation's wealth across both metrics.  
+
+
+<br>
+
+## About this Project
+This collaborative project was created in Jupyter Notebooks and R. We used Jupyter Notebooks to process the data and develop the visualizations. Then, we used python within R Markdown to design and render this page as HTML. You can find the source code for this project in on our Github. Data for this project comes from the US Census Bureau, curated by the 
+[Lonely Octopus team](https://www.lonelyoctopus.com/) as part of a data challenge. 
+
+<br>
+
+Thanks for taking the time to check out our project! If you have any questions feel free to engage with us on LinkedIn.
+
+<br>
+
+## The Authors {.tabset .tabset-fade .tabset-pills}
+
+### Jessica Hooker {.tabset}
+
+<h4>[Linkedin](https://www.linkedin.com/in/jessica-hooker-phd)</h4>
+<h4>[Github](https://github.com/j-hook)</h4>
+
+### Erica Luong {.tabset}
+<h4>[Linkedin](https://www.linkedin.com/in/ericaaluong)</h4>
+<h4>[Github](https://github.com/ericaluong/)</h4>
+
+### Jeremy Tran {.tabset}
+<h4>[Linkedin](https://www.linkedin.com/in/jeremy-tran-501503246/)</h4>
+<h4>[Github](https://github.com/fishingboatman)</h4>
+
+
+
+
+
